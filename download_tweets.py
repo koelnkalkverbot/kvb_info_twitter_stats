@@ -23,8 +23,7 @@ def get_all_tweets():
 		alltweets.extend(new_tweets)
 		oldest = alltweets[-1].id - 1
 
-		print ("Downloaded %s tweets" % (len(alltweets)))
-
+	print ("Downloaded %s tweets" % (len(alltweets)))
 	outtweets = [[tweet.id_str, tweet.created_at, tweet.full_text.replace('\n', ' ').replace('\r', '')] for tweet in alltweets]
 
 	with open('%s.csv' % datetime.datetime.now().strftime("%d-%m-%Y %H.%M.%S"), 'w') as f:
