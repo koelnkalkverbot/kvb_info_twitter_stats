@@ -1,0 +1,179 @@
+---
+title: "@KVB_Info Twitter stats"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  flexdashboard::flex_dashboard:
+    vertical-layout: scroll
+    theme: yeti
+---
+
+```{r read-prep, message = FALSE}
+options(stringsAsFactors = FALSE)
+library(tidyverse)
+library(highcharter)
+
+fnames <- list.files(".", "kvb_info_tweets_.*\\.csv")
+
+# id, created_at, text
+tweets_all <- map_df(fnames, read_csv) %>%
+  distinct(id, .keep_all = TRUE)
+
+tweets_enriched <- tweets_all %>%
+  mutate(text = tolower(text)) %>%
+  mutate(
+    cancelled = grepl("entfällt", text),
+    lines = gsub("^(linie.*?) \\*.*", "\\1", text),
+    lines = gsub("und", ",", lines),
+    lines = gsub(" ", "", lines),
+    lines = gsub("linien?", "", lines),
+    lines = ifelse(grepl("^[0-9,]*$", lines), lines, "")
+    #lines = strsplit(lines, ",")
+    # ToDo extract lines first stop
+  )
+
+```
+
+
+Cancelled lines {data-orientation=rows}
+================================================================================
+
+```{r prep cancelled}
+tweets_cancelled <- tweets_enriched %>%
+  filter(cancelled) %>%
+  select(created_at, lines)
+
+# anzahl ausfälle pro linie - alltime, lastweek, 24h
+
+# heatmap - dayofweek & timeofday - gesamtausfälle
+#           per weekday
+#           per hour
+
+# anzahl ausfälle - day (week, month: later)
+#    barchart mit stack colored lines
+
+```
+
+
+# Ausfälle per Linie (sämtliche verfügbare Daten)
+
+```{r cancellation_overview}
+tmp_all <- tweets_cancelled %>%
+  #mutate(duration = "all time") %>%
+  group_by(lines) %>%
+  summarize(n = n()) %>%
+  arrange(-n, as.numeric(lines))
+#tmp_week <- tweets_cancelled %>%
+#  filter(created_at >= (Sys.time() - as.difftime(7, units = "days"))) %>%
+#  mutate(duration = "week")
+#tmp_24h <- tweets_cancelled %>%
+#  filter(created_at >= (Sys.time() - as.difftime(1, units = "days"))) %>%
+#  mutate(duration = "24h")
+
+# http://jkunst.com/highcharter/highcharts.html
+
+highchart() %>% 
+  hc_add_series(tmp_all, "column", hcaes(x = lines, y = n), name = "Ausfall") %>%
+  hc_plotOptions(
+    series = list(
+      showInLegend = FALSE,
+      pointFormat = "{point.y}%"
+    ),
+    column = list(colorByPoint = TRUE)
+  ) %>%
+  hc_yAxis(title = list(text = "Ausfälle")) %>% 
+  hc_xAxis(
+    categories = tmp_all$lines,
+    title = list(text = "Linie")
+  )# %>%
+  #hc_title(text = "Ausfälle jeder Linie") %>%
+  #hc_subtitle(text = "(sämtliche verfügbaren Daten)") %>% 
+  #hc_credits(
+  #  enabled = TRUE, 
+  #  text = "Erstellt aus @KVB_info tweets",
+  #  href = "https://twitter.com/@KVB_Info",
+  #  style = list(fontSize = "12px")
+  #)
+
+```
+
+```{r cancellation_heatmap}
+days <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+hours <- seq.POSIXt(as.POSIXct(Sys.Date()), 
+                    as.POSIXct(Sys.Date()+1), 
+                    by = "hour") %>% 
+  format("%H") %>% 
+  unique()
+
+tmp_heat <- tweets_enriched %>%
+  mutate(hour = strftime(created_at, "%H")) %>%
+  mutate(wday = weekdays(created_at)) %>%
+  group_by(hour, wday) %>%
+  summarise(n = n()) %>%
+  ungroup %>%
+  mutate(wday = factor(wday, levels = days))
+
+# impute missing data 
+# all possible combinations of weekdays and hours
+# ToDo this could be neater
+lookup <- expand.grid(hour = hours, 
+                      wday = days, 
+                      stringsAsFactors = FALSE, KEEP.OUT.ATTRS = FALSE) %>% 
+  mutate(wday = factor(wday, levels = days))
+missing <- lookup %>% 
+  anti_join(tmp_heat, by = c("hour", "wday")) %>% 
+  mutate(n = 0)
+heatmap_complete <- tmp_heat %>%
+  rbind(missing) %>%
+  arrange(wday, hour)
+  
+fntltp <- JS("function(){return 'Ausfälle : ' + this.point.n;}")
+  
+# define discrete steps for colouring heatmap instead of gradient for a better 
+# visibility
+#by_steps <- 5
+#max_step <- by_steps*ceiling(max(heatmap_complete$n)/by_steps)
+#steps <- seq(0, max_step, by = 5)
+#nr_steps <- length(steps)
+#min_color <- "#FFFFFF"
+#max_color <- "#018786"
+#steps_colors <- colorRampPalette(c(min_color, max_color))(nr_steps)[2:nr_steps]
+#data_classes <- tibble(to = steps, color = c("#343E48", steps_colors)) %>% 
+#  mutate(from = to - (by_steps - 1)) %>% 
+#  mutate(from = ifelse(to == 0, 0, from)) %>% 
+#  list_parse()
+  
+hchart(heatmap_complete, "heatmap", hcaes(x = hour, y = wday, value = n)) %>%
+  hc_colorAxis(type = "linear") %>%
+  hc_tooltip(formatter = fntltp) %>%
+  #hc_title(text = "Ausfälle per Wochentag und Stunde") %>%
+  hc_xAxis(title = list(
+    text = "Stunde"),
+    gridLineWidth = 1
+  ) %>%
+  hc_yAxis(
+    title = list(text = "Wochentag"),
+    type = "datetime",
+    reversed = TRUE
+  ) %>%
+  #hc_colorAxis(dataClasses = data_classes) %>%
+  hc_plotOptions(marginTop = 40,
+                 marginBottom = 80,
+                 plotBorderWidth = 1) %>% 
+  hc_legend(labelFormatter = JS("function () {
+if (this.from == 0) {
+  return this.from;
+} else { 
+  return (this.from || '<') + ' - ' + (this.to || '>');
+}
+  }"),
+  valueDecimals = 0,
+  symbolRadius = 0, 
+  padding = 12)
+
+```
+
+
+```{r heatmap_time}
+
+```
+
