@@ -12,7 +12,7 @@ options(stringsAsFactors = FALSE)
 library(tidyverse)
 library(highcharter)
 
-fnames <- list.files(".", "kvb_info_tweets_.*\\.csv")
+fnames <- list.files(".", "kvb_tweets_.*\\.csv")
 
 # id, created_at, text
 tweets_all <- map_df(fnames, read_csv) %>%
@@ -102,7 +102,8 @@ hours <- seq.POSIXt(as.POSIXct(Sys.Date()),
                     as.POSIXct(Sys.Date()+1), 
                     by = "hour") %>% 
   format("%H") %>% 
-  unique()
+  unique() %>%
+  sort()
 
 tmp_heat <- tweets_enriched %>%
   mutate(hour = strftime(created_at, "%H")) %>%
@@ -125,7 +126,14 @@ missing <- lookup %>%
 heatmap_complete <- tmp_heat %>%
   rbind(missing) %>%
   arrange(wday, hour)
-  
+
+heatmap_wdays <- heatmap_complete %>%
+  group_by(wday) %>%
+  summarize(n = sum(n))
+heatmap_hours <- heatmap_complete %>%
+  group_by(hour) %>%
+  summarize(n = sum(n))
+
 fntltp <- JS("function(){return 'Ausfälle : ' + this.point.n;}")
   
 # define discrete steps for colouring heatmap instead of gradient for a better 
@@ -169,6 +177,20 @@ if (this.from == 0) {
   valueDecimals = 0,
   symbolRadius = 0, 
   padding = 12)
+
+highchart() %>%
+  hc_add_series(heatmap_hours, "column", hcaes(x = hour, y = n)) %>%
+  hc_xAxis(
+    categories = hours,
+    title = list(text = "Stunde")
+  )
+
+highchart() %>%
+  hc_add_series(heatmap_wdays, "column", hcaes(x = wday, y = n)) %>%
+  hc_xAxis(
+    categories = days,
+    title = list(text = "Wochentag")
+  )
 
 ```
 
