@@ -26,10 +26,9 @@ read_tweets <- function(path) {
 tweets_all <- map_df(fnames, read_tweets) %>%
   group_by(id) %>%
   # TODO incorporate existing first_seen from consolidated data
-  mutate(first_seen = min(created_at),
-         last_seen = max(downloaded_at)) %>%
+  mutate(last_seen = max(downloaded_at)) %>%
   distinct(id, .keep_all = TRUE) %>%
-  select(text, created_at, first_seen, last_seen)
+  select(text, created_at, last_seen)
 
 data_range_min <- min(tweets_all$first_seen)
 data_range_max <- max(tweets_all$last_seen)
@@ -71,7 +70,7 @@ tmp_all <- tweets_cancelled %>%
 # http://jkunst.com/highcharter/highcharts.html
 
 highchart() %>% 
-  hc_add_series(tmp_all, "column", hcaes(x = lines, y = n), name = "Ausfall") %>%
+  hc_add_series(tmp_all, "column", hcaes(x = lines, y = n), name = "Ausfälle") %>%
   hc_plotOptions(
     series = list(
       showInLegend = FALSE,
