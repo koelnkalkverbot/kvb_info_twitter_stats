@@ -12,6 +12,7 @@ output:
 options(stringsAsFactors = FALSE)
 library(tidyverse)
 library(highcharter)
+library(DT)
 
 fnames <- list.files(".", "kvb_tweets_.*\\.csv")
 
@@ -258,4 +259,43 @@ highchart() %>%
     title = list(text = "Wochentag")
   )
 
+```
+
+
+Löschverhalten
+================================================================================
+
+Row
+--------------------------------------------------------------------------------
+
+### Anzeigedauer der Tweets (Stunden)
+
+```{r tweets_lifetime}
+tweets_deletion <- tweets_all %>%
+  ungroup() %>%
+  mutate(ttl = as.numeric(last_seen - created_at, units = "hours"),
+         deleted = (last_seen != max(last_seen))
+  ) %>%
+  filter(deleted)
+
+hist(tweets_deletion$ttl)
+```
+
+### Häufigkeit der Löschung
+
+```{r deletion_frequency}
+deletion_events <- tweets_deletion %>%
+  group_by(last_seen) %>%
+  summarize(
+    num_deleted = n(),
+    created_min = min(created_at),
+    created_max = max(created_at)
+  ) %>%
+  mutate(
+    last_seen = paste(last_seen),
+    created_min = paste(created_min),
+    created_max = paste(created_max)
+  )
+
+datatable(deletion_events)
 ```
