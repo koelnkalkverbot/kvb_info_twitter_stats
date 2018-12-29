@@ -3,7 +3,8 @@ title: "@KVB_Info Twitter stats"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
   flexdashboard::flex_dashboard:
-    vertical-layout: scroll
+    vertical-layout: fill
+    orientation: rows
     theme: yeti
 ---
 
@@ -14,9 +15,24 @@ library(highcharter)
 
 fnames <- list.files(".", "kvb_tweets_.*\\.csv")
 
-# id, created_at, text
-tweets_all <- map_df(fnames, read_csv) %>%
-  distinct(id, .keep_all = TRUE)
+read_tweets <- function(path) {
+  # id, created_at, text, (first_seen), (last_seen)
+  downloaded <- as.POSIXct(strptime(path, "kvb_tweets_%Y%m%d_%H%M%S.csv", tz = "UTC"))
+  data <- read_csv(path) %>%
+    mutate(downloaded_at = downloaded)
+  return(data)
+}
+
+tweets_all <- map_df(fnames, read_tweets) %>%
+  group_by(id) %>%
+  # TODO incorporate existing first_seen from consolidated data
+  mutate(first_seen = min(created_at),
+         last_seen = max(downloaded_at)) %>%
+  distinct(id, .keep_all = TRUE) %>%
+  select(text, created_at, first_seen, last_seen)
+
+data_range_min <- min(tweets_all$first_seen)
+data_range_max <- max(tweets_all$last_seen)
 
 tweets_enriched <- tweets_all %>%
   mutate(text = tolower(text)) %>%
@@ -34,40 +50,23 @@ tweets_enriched <- tweets_all %>%
 ```
 
 
-Cancelled lines {data-orientation=rows}
+Ausfälle {data-orientation=rows}
 ================================================================================
 
-```{r prep cancelled}
+Row
+--------------------------------------------------------------------------------
+
+### Ausfälle pro Linie (`r paste(data_range_min, "-", data_range_max)`)
+
+```{r cancellation_overview}
 tweets_cancelled <- tweets_enriched %>%
   filter(cancelled) %>%
   select(created_at, lines)
 
-# anzahl ausfälle pro linie - alltime, lastweek, 24h
-
-# heatmap - dayofweek & timeofday - gesamtausfälle
-#           per weekday
-#           per hour
-
-# anzahl ausfälle - day (week, month: later)
-#    barchart mit stack colored lines
-
-```
-
-
-# Ausfälle per Linie (sämtliche verfügbare Daten)
-
-```{r cancellation_overview}
 tmp_all <- tweets_cancelled %>%
-  #mutate(duration = "all time") %>%
   group_by(lines) %>%
   summarize(n = n()) %>%
   arrange(-n, as.numeric(lines))
-#tmp_week <- tweets_cancelled %>%
-#  filter(created_at >= (Sys.time() - as.difftime(7, units = "days"))) %>%
-#  mutate(duration = "week")
-#tmp_24h <- tweets_cancelled %>%
-#  filter(created_at >= (Sys.time() - as.difftime(1, units = "days"))) %>%
-#  mutate(duration = "24h")
 
 # http://jkunst.com/highcharter/highcharts.html
 
@@ -95,6 +94,63 @@ highchart() %>%
   #)
 
 ```
+
+### Ausfälle pro Linie (7 Tage)
+
+```{r cancellation_overview_week}
+tmp_week <- tweets_cancelled %>%
+  filter(created_at >= (Sys.time() - as.difftime(7, units = "days"))) %>%
+  group_by(lines) %>%
+  summarize(n = n()) %>%
+  arrange(-n, as.numeric(lines))
+
+highchart() %>% 
+  hc_add_series(tmp_week, "column", hcaes(x = lines, y = n), name = "Ausfall") %>%
+  hc_plotOptions(
+    series = list(
+      showInLegend = FALSE,
+      pointFormat = "{point.y}%"
+    ),
+    column = list(colorByPoint = TRUE)
+  ) %>%
+  hc_yAxis(title = list(text = "Ausfälle")) %>% 
+  hc_xAxis(
+    categories = tmp_all$lines,
+    title = list(text = "Linie")
+  )
+
+```
+
+### Ausfälle pro Linie (24 Stunden)
+
+```{r cancellation_overview_day}
+tmp_24h <- tweets_cancelled %>%
+  filter(created_at >= (Sys.time() - as.difftime(1, units = "days"))) %>%
+  group_by(lines) %>%
+  summarize(n = n()) %>%
+  arrange(-n, as.numeric(lines))
+
+highchart() %>% 
+  hc_add_series(tmp_24h, "column", hcaes(x = lines, y = n), name = "Ausfall") %>%
+  hc_plotOptions(
+    series = list(
+      showInLegend = FALSE,
+      pointFormat = "{point.y}%"
+    ),
+    column = list(colorByPoint = TRUE)
+  ) %>%
+  hc_yAxis(title = list(text = "Ausfälle")) %>% 
+  hc_xAxis(
+    categories = tmp_all$lines,
+    title = list(text = "Linie")
+  )
+
+```
+
+Row
+--------------------------------------------------------------------------------
+
+### Ausfälle pro Wochentag und Stunde (`r paste(data_range_min, "-", data_range_max)`)
 
 ```{r cancellation_heatmap}
 days <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -127,13 +183,6 @@ heatmap_complete <- tmp_heat %>%
   rbind(missing) %>%
   arrange(wday, hour)
 
-heatmap_wdays <- heatmap_complete %>%
-  group_by(wday) %>%
-  summarize(n = sum(n))
-heatmap_hours <- heatmap_complete %>%
-  group_by(hour) %>%
-  summarize(n = sum(n))
-
 fntltp <- JS("function(){return 'Ausfälle : ' + this.point.n;}")
   
 # define discrete steps for colouring heatmap instead of gradient for a better 
@@ -153,7 +202,7 @@ fntltp <- JS("function(){return 'Ausfälle : ' + this.point.n;}")
 hchart(heatmap_complete, "heatmap", hcaes(x = hour, y = wday, value = n)) %>%
   hc_colorAxis(type = "linear") %>%
   hc_tooltip(formatter = fntltp) %>%
-  #hc_title(text = "Ausfälle per Wochentag und Stunde") %>%
+  #hc_title(text = "Ausfälle pro Wochentag und Stunde") %>%
   hc_xAxis(title = list(
     text = "Stunde"),
     gridLineWidth = 1
@@ -178,12 +227,30 @@ if (this.from == 0) {
   symbolRadius = 0, 
   padding = 12)
 
+```
+
+### Ausfälle pro Stunde (`r paste(data_range_min, "-", data_range_max)`)
+
+```{r heatmap_supplement_hours}
+heatmap_hours <- heatmap_complete %>%
+  group_by(hour) %>%
+  summarize(n = sum(n))
+
 highchart() %>%
   hc_add_series(heatmap_hours, "column", hcaes(x = hour, y = n)) %>%
   hc_xAxis(
     categories = hours,
     title = list(text = "Stunde")
   )
+
+```
+
+### Ausfälle pro Wochentag (`r paste(data_range_min, "-", data_range_max)`)
+
+```{r heatmap_supplement_wdays}
+heatmap_wdays <- heatmap_complete %>%
+  group_by(wday) %>%
+  summarize(n = sum(n))
 
 highchart() %>%
   hc_add_series(heatmap_wdays, "column", hcaes(x = wday, y = n)) %>%
@@ -193,9 +260,3 @@ highchart() %>%
   )
 
 ```
-
-
-```{r heatmap_time}
-
-```
-
