@@ -26,7 +26,7 @@ def get_all_tweets():
 	print ("Downloaded %s tweets" % (len(alltweets)))
 	outtweets = [[tweet.id_str, tweet.created_at, tweet.full_text.replace('\n', ' ').replace('\r', '')] for tweet in alltweets]
 
-	with open('kvb_tweets_%s.csv' % datetime.datetime.now().strftime("%Y-%m-%d %H.%M.%S"), 'w') as f:
+	with open('kvb_tweets_%s.csv' % datetime.datetime.now().strftime("%Y%m%d_%H%M%S"), 'w') as f:
 		writer = csv.writer(f)
 		writer.writerow(['id', 'created_at', 'text'])
 		writer.writerows(outtweets)
