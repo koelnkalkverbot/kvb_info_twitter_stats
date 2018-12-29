@@ -28,10 +28,11 @@ tweets_all <- map_df(fnames, read_tweets) %>%
   group_by(id) %>%
   # TODO incorporate existing first_seen from consolidated data
   mutate(last_seen = max(downloaded_at)) %>%
+  ungroup() %>%
   distinct(id, .keep_all = TRUE) %>%
   select(text, created_at, last_seen)
 
-data_range_min <- min(tweets_all$first_seen)
+data_range_min <- min(tweets_all$created_at)
 data_range_max <- max(tweets_all$last_seen)
 
 tweets_enriched <- tweets_all %>%
