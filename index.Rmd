@@ -137,7 +137,7 @@ fill_hours_wdays <- function(df) {
   missing <- hours_wdays_init %>%
     anti_join(df, by = c("hour", "wday"))
   df_filled <- df %>%
-    rbind(missing) %>%
+    bind_rows(missing) %>%
     arrange(wday, hour)
   return(df_filled)
 }
@@ -383,6 +383,74 @@ highchart() %>%
     title = list(text = "Stunde")
   ) %>%
   hc_legend(enabled = FALSE)
+
+```
+
+
+
+Ausfallentwicklung
+================================================================================
+
+Row
+--------------------------------------------------------------------------------
+
+### Ausfälle pro Tag und Linie
+
+```{r cancellation_development}
+
+cancelled_development <- tweets_cancelled %>%
+  mutate(date = as.Date(created_at)) %>%
+  group_by(lines, date) %>%
+  summarize(n = n())
+
+fill_lines_hours <- function(df) {
+  dates_init <- data_frame(
+      date = seq(
+        min(df$date),
+        max(df$date),
+        by = "day"),
+      lines = df$lines[[1]]
+    ) %>%
+    mutate(n = 0)
+  # df: hour, wday, n
+  missing <- dates_init %>%
+    anti_join(df, by = c("lines", "date"))
+  df_filled <- df %>%
+    bind_rows(missing) %>%
+    arrange(date, lines)
+  return(df_filled)
+}
+
+cancelled_development_full <- cancelled_development %>%
+  fill_lines_hours() %>%
+  mutate(date = datetime_to_timestamp(date))
+
+highchart() %>%
+  hc_xAxis(
+    type = "datetime",
+    title = list(text = "Datum")
+  ) %>%
+  hc_add_series(
+    data = cancelled_development_full,
+    type = "column",
+    hcaes(
+      x = date,
+      y = n,
+      group = lines
+    )
+  ) %>%
+  hc_plotOptions(
+    column = list(
+      stacking = "normal",
+      pointPadding = 0,
+      pointPlacement = "between",
+      #pointRange = 60 * 60 * 1000
+      groupPadding = 0,
+      borderWidth = 2,
+      borderColor = "#454545"
+    )
+  ) %>%
+  hc_yAxis(title = list(text = "Anzahl Ausfälle"))
 
 ```
 
