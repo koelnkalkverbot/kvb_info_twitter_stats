@@ -399,7 +399,18 @@ tweets_deletion <- tweets_all %>%
   ) %>%
   filter(deleted)
 
-hist(tweets_deletion$ttl)
+# hchart can automatically create histograms, otherwise you need to create them manually
+lifetime_chart <- hchart(tweets_deletion$ttl) %>%
+  hc_xAxis(title = list(text = "Ungefähre Anzeigedauer (Stunden)")) %>%
+  hc_yAxis(title = list(text = "Anzahl Tweets")) %>%
+  hc_legend(enabled = FALSE) %>%
+  hc_plotOptions(
+    column = list(borderColor = "#303030")
+  )
+# there's no way to reach the options of an already created series with manually set options (as hchart does)
+lifetime_chart$x$hc_opts$series[[1]]$borderWidth <- 2
+lifetime_chart
+
 ```
 
 ### Häufigkeit der Löschung
