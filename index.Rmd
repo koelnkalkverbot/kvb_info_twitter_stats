@@ -223,7 +223,8 @@ highchart() %>%
   hc_xAxis(
     categories = hours,
     title = list(text = "Stunde")
-  )
+  ) %>%
+  hc_legend(enabled = FALSE)
 
 ```
 
@@ -239,7 +240,8 @@ highchart() %>%
   hc_xAxis(
     categories = days,
     title = list(text = "Wochentag")
-  )
+  ) %>%
+  hc_legend(enabled = FALSE)
 
 ```
 
@@ -304,7 +306,8 @@ highchart() %>%
   hc_xAxis(
     categories = hours,
     title = list(text = "Stunde")
-  )
+  ) %>%
+  hc_legend(enabled = FALSE)
 
 ```
 
@@ -320,7 +323,8 @@ highchart() %>%
   hc_xAxis(
     categories = days,
     title = list(text = "Wochentag")
-  )
+  ) %>%
+  hc_legend(enabled = FALSE)
 
 ```
 
@@ -377,7 +381,8 @@ highchart() %>%
   hc_xAxis(
     categories = hours,
     title = list(text = "Stunde")
-  )
+  ) %>%
+  hc_legend(enabled = FALSE)
 
 ```
 
@@ -405,7 +410,7 @@ lifetime_chart <- hchart(tweets_deletion$ttl) %>%
   hc_yAxis(title = list(text = "Anzahl Tweets")) %>%
   hc_legend(enabled = FALSE) %>%
   hc_plotOptions(
-    column = list(borderColor = "#303030")
+    column = list(borderColor = "#454545")
   )
 # there's no way to reach the options of an already created series with manually set options (as hchart does)
 lifetime_chart$x$hc_opts$series[[1]]$borderWidth <- 2
@@ -419,7 +424,7 @@ lifetime_chart
 deletion_events <- tweets_deletion %>%
   group_by(last_seen) %>%
   summarize(
-    num_deleted = n(),
+    tweets_deleted = n(),
     created_min = min(created_at),
     created_max = max(created_at)
   ) %>%
@@ -427,6 +432,12 @@ deletion_events <- tweets_deletion %>%
     last_seen = paste(last_seen),
     created_min = paste(created_min),
     created_max = paste(created_max)
+  ) %>%
+  rename(
+    `Tweets gelöscht` = tweets_deleted,
+    `letzter Download mit Tweet` = last_seen,
+    `erster gelöschter Tweet` = created_min,
+    `letzter gelöschter Tweet` = created_max
   )
 
 datatable(deletion_events)
