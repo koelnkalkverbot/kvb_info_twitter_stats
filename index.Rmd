@@ -346,7 +346,7 @@ cancellations_24h <- tweets_cancelled %>%
   arrange(-n, as.numeric(lines))
 
 highchart() %>%
-  hc_add_series(cancellations_week, "column", hcaes(x = lines, y = n), name = "Ausfall") %>%
+  hc_add_series(cancellations_24h, "column", hcaes(x = lines, y = n), name = "Ausfall") %>%
   hc_plotOptions(
     series = list(
       showInLegend = FALSE,
@@ -356,7 +356,7 @@ highchart() %>%
   ) %>%
   hc_yAxis(title = list(text = "Ausfälle")) %>%
   hc_xAxis(
-    categories = cancellations_week$lines,
+    categories = cancellations_24h$lines,
     title = list(text = "Linie")
   )
 
