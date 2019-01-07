@@ -289,7 +289,7 @@ cancellations_heatmap_week <- tweets_cancelled %>%
   filter(created_at >= (Sys.time() - as.difftime(7, units = "days"))) %>%
   prepare_heatmap
 
-hchart(cancellations_heatmap_alltime, "heatmap", hcaes(x = hour, y = wday, value = n)) %>%
+hchart(cancellations_heatmap_week, "heatmap", hcaes(x = hour, y = wday, value = n)) %>%
   prettify_heatmap
 
 ```
@@ -509,4 +509,5 @@ deletion_events <- tweets_deletion %>%
   )
 
 datatable(deletion_events)
+
 ```
